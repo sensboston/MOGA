@@ -9,4 +9,6 @@ Library was tested with good and inexpensive [MOGA Mobile controller](https://ww
 
 You can use Windows 8.1/WP 8.1 builds with your W8.1 UWP or W10 UWP apps and games.
 
+You may check this code on my [DOSBox app](https://www.microsoft.com/en-us/store/p/dosbox/9nblggh4q6j8) and [D00M game](https://www.microsoft.com/en-us/store/p/d00М/9nblggh4rql0)
+
 Enjoy!
