@@ -2,10 +2,16 @@
 using Windows.UI.Xaml.Controls;
 using MOGAController;
 
+// The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
+
 namespace JoystickTest
 {
+    /// <summary>
+    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// </summary>
     public sealed partial class MainPage : Page
     {
+
         Controller controller = new Controller();
 
         public MainPage()
@@ -24,12 +30,15 @@ namespace JoystickTest
             {
                 controller.Disconnect();
                 keyStatus.Text = axisStatus.Text = "";
-                (sender as Button).Content = "Connect to BD&A";
+                connectBDA.Content = "Connect to BD&A";
+                connectMoga2.Content = "Connect to Moga 2";
+                connectMoga2.IsEnabled = connectBDA.IsEnabled = true;
             }
             else
             {
-                controller.Connect();
+                controller.Connect(btn.Content.Equals("Connect to BD&A") ? "BD&A" : "Moga 2");
                 (sender as Button).Content = "Disconnect";
+                if (btn.Name.Equals("connectBDA")) connectMoga2.IsEnabled = false; else connectBDA.IsEnabled = false;
             }
         }
 

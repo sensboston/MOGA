@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Diagnostics;
-using Windows.UI.Xaml;
 
 namespace MOGAController
 {
@@ -60,10 +59,10 @@ namespace MOGAController
         R2 = 19,
         ThumbLeft = 20,
         ThumbRight = 21,
-        DirectionUp = 22,
-        DirectionDown = 23,
-        DirectionLeft = 24,
-        DirectionRight = 25
+        DPadUp = 22,
+        DPadDown = 23,
+        DPadLeft = 24,
+        DPadRight = 25
     }
 
     public delegate void StateChangedEventHandler(StateEvent args);
@@ -98,7 +97,7 @@ namespace MOGAController
     {
         private DeviceInformation _serviceInfo;
         private RfcommDeviceService _rfcommService;
-        private StreamSocket _socket;
+        private StreamSocket _socket = new StreamSocket();
         private CancellationTokenSource _cancelationSource;
 
         private const uint RECVMSG_LEN = 12;
@@ -111,6 +110,8 @@ namespace MOGAController
         private const byte CMD_FLUSH = 68;
 
         private byte[] m_State = new byte[MOGABUF_LEN];
+
+        public string ControllerName { get; private set; }
 
         public bool IsConnected { get; private set; }
 
@@ -126,13 +127,23 @@ namespace MOGAController
         public void Disconnect()
         {
             _cancelConnect = _cancelListener = true;
+            _socket.Dispose();
+            _socket = new StreamSocket();
         }
 
-        public async void Connect()
+        public void Connect()
+        {
+            Connect("");
+        }
+
+        public async void Connect(string btServiceName)
         {
             _cancelConnect = _cancelListener = IsConnected = false;
             var serviceInfoCollection = await DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort));
-            _serviceInfo = serviceInfoCollection.Where(s => s.Name == "BD&A").FirstOrDefault();
+            if (string.IsNullOrEmpty(btServiceName))
+                _serviceInfo = serviceInfoCollection.Where(s => s.Name.ToUpper().Contains("BD&A") || s.Name.ToUpper().Contains("MOGA")).FirstOrDefault();
+            else
+                _serviceInfo = serviceInfoCollection.Where(s => s.Name.ToUpper().Contains(btServiceName.ToUpper())).FirstOrDefault();
 
             if (_serviceInfo != null)
             {
@@ -143,13 +154,14 @@ namespace MOGAController
                 {
                     StateChanged?.Invoke(new StateEvent(ControllerResult.Connecting));
 
+                    bool skipConnection = false;
                     // For connect retrying 
                     while (!_cancelConnect)
                     {
                         try
                         {
-                            _socket = new StreamSocket();
-                            await _socket.ConnectAsync(_rfcommService.ConnectionHostName, _rfcommService.ConnectionServiceName, SocketProtectionLevel.PlainSocket);
+                            if (!skipConnection)
+                                await _socket.ConnectAsync(_rfcommService.ConnectionHostName, _rfcommService.ConnectionServiceName, SocketProtectionLevel.PlainSocket);
 
                             IsConnected = true;
                             StateChanged?.Invoke(new StateEvent(ControllerResult.Connected));
@@ -158,13 +170,24 @@ namespace MOGAController
                             // Set controller ID
                             await SendMessage(CMD_INIT);
 
+                            ControllerName = _serviceInfo.Name;
+
                             await Task.Factory.StartNew(SocketListener, new CancellationTokenSource().Token, TaskCreationOptions.LongRunning, TaskScheduler.FromCurrentSynchronizationContext());
-                            break;
+
+                            return;
                         }
                         catch (Exception error)
                         {
-                            Debug.WriteLine(error.Message);
-                            await Task.Delay(500);
+                            // No more data available exception:
+                            // probably, controller is off, let's continue our tries
+                            if ((uint)error.HResult == 0x80070103) 
+                            {
+                                Debug.WriteLine(error.Message);
+                                await Task.Delay(500);
+                            }
+                            // Guess "Method called in unexpected time" exception :
+                            // We are already connected so we should skip ConnectAsync call
+                            else skipConnection = true;
                         }
                     }
                 }
@@ -188,10 +211,6 @@ namespace MOGAController
                 }
                 else ProcessData(); 
             }
-
-            _socket.Dispose();
-            _socket = null;
-
             IsConnected = false;
             StateChanged?.Invoke(new StateEvent(ControllerResult.Disconnected));
         }
@@ -292,8 +311,14 @@ namespace MOGAController
         private byte buttonY = 0;
         private byte buttonL1 = 0;
         private byte buttonR1 = 0;
+        private byte buttonL2 = 0;
+        private byte buttonR2 = 0;
         private byte buttonSelect = 0;
         private byte buttonStart = 0;
+        private byte buttonDPadUp = 0;
+        private byte buttonDPadDown = 0;
+        private byte buttonDPadLeft = 0;
+        private byte buttonDPadRight = 0;
 
         private int axisX = 0;
         private int axisY = 0;
@@ -311,14 +336,20 @@ namespace MOGAController
             Debug.WriteLine(BitConverter.ToString(m_State));
 
             // First, process the buttons
-            byte newButtonA = (byte)((m_State[0] >> 2) & 1);        // A
-            byte newButtonB = (byte)((m_State[0] >> 1) & 1);        // B
-            byte newButtonX = (byte)((m_State[0] >> 3) & 1);        // X
-            byte newButtonY = (byte)((m_State[0] >> 0) & 1);        // Y
-            byte newButtonL1 = (byte)((m_State[0] >> 6) & 1);       // L1
-            byte newButtonR1 = (byte)((m_State[0] >> 7) & 1);       // R1
-            byte newButtonSelect = (byte)((m_State[0] >> 5) & 1);   // Select
-            byte newButtonStart = (byte)((m_State[0] >> 4) & 1);    // Start
+            byte newButtonA = (byte)((m_State[0] >> 2) & 1);            // A
+            byte newButtonB = (byte)((m_State[0] >> 1) & 1);            // B
+            byte newButtonX = (byte)((m_State[0] >> 3) & 1);            // X
+            byte newButtonY = (byte)((m_State[0] >> 0) & 1);            // Y
+            byte newButtonL1 = (byte)((m_State[0] >> 6) & 1);           // L1
+            byte newButtonR1 = (byte)((m_State[0] >> 7) & 1);           // R1
+            byte newButtonL2 = (byte)((m_State[1] >> 4) & 1);           // L2
+            byte newButtonR2 = (byte)((m_State[1] >> 5) & 1);           // R2
+            byte newButtonSelect = (byte)((m_State[0] >> 5) & 1);       // Select
+            byte newButtonStart = (byte)((m_State[0] >> 4) & 1);        // Start
+            byte newButtonDPadUp = (byte)(m_State[1]  & 1);             // DPad Up
+            byte newButtonDPadDown = (byte)((m_State[1] >> 1) & 1);     // DPad Down
+            byte newButtonDPadLeft = (byte)((m_State[1] >> 2) & 1);     // DPad Left
+            byte newButtonDPadRight = (byte)((m_State[1] >> 3) & 1);    // DPad Right
 
             if (buttonA != newButtonA) KeyChanged?.Invoke(new KeyEvent(KeyCode.A, newButtonA > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
             if (buttonB != newButtonB) KeyChanged?.Invoke(new KeyEvent(KeyCode.B, newButtonB > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
@@ -326,8 +357,14 @@ namespace MOGAController
             if (buttonY != newButtonY) KeyChanged?.Invoke(new KeyEvent(KeyCode.Y, newButtonY > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
             if (buttonL1 != newButtonL1) KeyChanged?.Invoke(new KeyEvent(KeyCode.L1, newButtonL1 > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
             if (buttonR1 != newButtonR1) KeyChanged?.Invoke(new KeyEvent(KeyCode.R1, newButtonR1 > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonL2 != newButtonL2) KeyChanged?.Invoke(new KeyEvent(KeyCode.L2, newButtonL2 > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonR2 != newButtonR2) KeyChanged?.Invoke(new KeyEvent(KeyCode.R2, newButtonR2 > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
             if (buttonSelect != newButtonSelect) KeyChanged?.Invoke(new KeyEvent(KeyCode.Select, newButtonSelect > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
             if (buttonStart != newButtonStart) KeyChanged?.Invoke(new KeyEvent(KeyCode.Start, newButtonStart > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonDPadUp != newButtonDPadUp) KeyChanged?.Invoke(new KeyEvent(KeyCode.DPadUp, newButtonDPadUp > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonDPadDown != newButtonDPadDown) KeyChanged?.Invoke(new KeyEvent(KeyCode.DPadDown, newButtonDPadDown > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonDPadLeft != newButtonDPadLeft) KeyChanged?.Invoke(new KeyEvent(KeyCode.DPadLeft, newButtonDPadLeft > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
+            if (buttonDPadRight != newButtonDPadRight) KeyChanged?.Invoke(new KeyEvent(KeyCode.DPadRight, newButtonDPadRight > 0 ? ControllerAction.Pressed : ControllerAction.Unpressed));
 
             buttonA = newButtonA;
             buttonB = newButtonB;
@@ -335,49 +372,103 @@ namespace MOGAController
             buttonY = newButtonY;
             buttonL1 = newButtonL1;
             buttonR1 = newButtonR1;
+            buttonL2 = newButtonL2;
+            buttonR2 = newButtonR2;
             buttonSelect = newButtonSelect;
             buttonStart = newButtonStart;
+            buttonDPadUp = newButtonDPadUp;
+            buttonDPadDown = newButtonDPadDown;
+            buttonDPadLeft = newButtonDPadLeft;
+            buttonDPadRight = newButtonDPadRight;
 
-            // Next, process joystick/d-pad axes
-            int newAxisX = 0;
-            sbyte newDataX = (sbyte)m_State[2];
-            if ( (byte) (m_State[1] & 0x04) == 0x04 || (byte) (m_State[1] & 0x08) == 0x08) newAxisX = (byte) (m_State[1] & 0x04) == 0x04 ? 1 : -1;
-            if (axisX != newAxisX || (newAxisX != 0 && dataX != newDataX) || (axisX != 0 && newAxisX == 0))
+            // Is it "Moga Mobile" controller?
+            if (ControllerName.Equals("BD&A"))
             {
-                AxisChanged?.Invoke(new MotionEvent(Axis.X, newAxisX == 0 ? 0 : newDataX));
-            }
-            axisX = newAxisX;
-            dataX = newDataX;
+                // Next, process joystick/d-pad axes
+                int newAxisX = 0;
+                sbyte newDataX = (sbyte)m_State[2];
+                if ((byte)(m_State[1] & 0x04) == 0x04 || (byte)(m_State[1] & 0x08) == 0x08) newAxisX = (byte)(m_State[1] & 0x04) == 0x04 ? 1 : -1;
+                if (axisX != newAxisX || (newAxisX != 0 && dataX != newDataX) || (axisX != 0 && newAxisX == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.X, newAxisX == 0 ? 0 : newDataX));
+                }
+                axisX = newAxisX;
+                dataX = newDataX;
 
-            int newAxisY = 0;
-            sbyte newDataY = (sbyte)m_State[3];
-            if ((byte) (m_State[1] & 0x01) == 0x01 || (byte) (m_State[1] & 0x02) == 2) newAxisY = (byte) (m_State[1] & 0x01) == 0x01 ? 1 : -1;
-            if (axisY != newAxisY || (newAxisY != 0 && dataY != newDataY) || (axisY != 0 && newAxisY == 0))
-            {
-                AxisChanged?.Invoke(new MotionEvent(Axis.Y, newAxisY == 0 ? 0 : newDataY));
-            }
-            axisY = newAxisY;
-            dataY = newDataY;
+                int newAxisY = 0;
+                sbyte newDataY = (sbyte)m_State[3];
+                if ((byte)(m_State[1] & 0x01) == 0x01 || (byte)(m_State[1] & 0x02) == 2) newAxisY = (byte)(m_State[1] & 0x01) == 0x01 ? 1 : -1;
+                if (axisY != newAxisY || (newAxisY != 0 && dataY != newDataY) || (axisY != 0 && newAxisY == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.Y, newAxisY == 0 ? 0 : newDataY));
+                }
+                axisY = newAxisY;
+                dataY = newDataY;
 
-            int newAxisZ = 0;
-            sbyte newDataZ = (sbyte)m_State[5];
-            if ( (byte) (m_State[1] & 0x10) == 0x10 || (byte) (m_State[1] & 0x20) == 0x20) newAxisZ = (byte) (m_State[1] & 0x10) == 0x10 ? 1 : -1;
-            if (axisZ != newAxisZ || (newAxisZ != 0 && dataZ != newDataZ) || (axisZ != 0 && newAxisZ == 0))
-            {
-                AxisChanged?.Invoke(new MotionEvent(Axis.Z, newAxisZ == 0 ? 0 : newDataZ));
-            }
-            axisZ = newAxisZ;
-            dataZ = newDataZ;
+                int newAxisZ = 0;
+                sbyte newDataZ = (sbyte)m_State[5];
+                if ((byte)(m_State[1] & 0x10) == 0x10 || (byte)(m_State[1] & 0x20) == 0x20) newAxisZ = (byte)(m_State[1] & 0x10) == 0x10 ? 1 : -1;
+                if (axisZ != newAxisZ || (newAxisZ != 0 && dataZ != newDataZ) || (axisZ != 0 && newAxisZ == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.Z, newAxisZ == 0 ? 0 : newDataZ));
+                }
+                axisZ = newAxisZ;
+                dataZ = newDataZ;
 
-            int newAxisRZ = 0;
-            sbyte newDataRZ = (sbyte)m_State[4];
-            if ( (byte) (m_State[1] & 0x40) == 0x40 || (byte) (m_State[1] & 0x80) == 0x80) newAxisRZ = (byte) (m_State[1] & 0x40) == 0x40 ? 1 : -1;
-            if (axisRZ != newAxisRZ || (newAxisRZ != 0 && dataRZ != newDataRZ) || (axisRZ != 0 && newAxisRZ == 0))
-            {
-                AxisChanged?.Invoke(new MotionEvent(Axis.RZ, newAxisRZ == 0 ? 0 : newDataRZ));
+                int newAxisRZ = 0;
+                sbyte newDataRZ = (sbyte)m_State[4];
+                if ((byte)(m_State[1] & 0x40) == 0x40 || (byte)(m_State[1] & 0x80) == 0x80) newAxisRZ = (byte)(m_State[1] & 0x40) == 0x40 ? 1 : -1;
+                if (axisRZ != newAxisRZ || (newAxisRZ != 0 && dataRZ != newDataRZ) || (axisRZ != 0 && newAxisRZ == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.RZ, newAxisRZ == 0 ? 0 : newDataRZ));
+                }
+                axisRZ = newAxisRZ;
+                dataRZ = newDataRZ;
             }
-            axisRZ = newAxisRZ;
-            dataRZ = newDataRZ;
+            else
+            {
+                // Next, process joystick/d-pad axes
+                int newAxisX = 0;
+                sbyte newDataX = (sbyte)m_State[2];
+                if ((byte)(m_State[2] & 0x80) == 0x80 || (byte)(m_State[2] & 0x40) == 0x40) newAxisX = (byte)(m_State[2] & 0x80) == 0x80 ? 1 : -1;
+                if (axisX != newAxisX || (newAxisX != 0 && dataX != newDataX) || (axisX != 0 && newAxisX == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.X, newDataX));
+                }
+                axisX = newAxisX;
+                dataX = newDataX;
+
+                int newAxisY = 0;
+                sbyte newDataY = (sbyte)m_State[3];
+                if ((byte)(m_State[3] & 0x80) == 0x80 || (byte)(m_State[3] & 0x40) == 0x40) newAxisY = (byte)(m_State[3] & 0x80) == 0x80 ? 1 : -1;
+                if (axisY != newAxisY || (newAxisY != 0 && dataY != newDataY) || (axisY != 0 && newAxisY == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.Y, newDataY));
+                }
+                axisY = newAxisY;
+                dataY = newDataY;
+
+                int newAxisZ = 0;
+                sbyte newDataZ = (sbyte)m_State[5];
+                if ((byte)(m_State[5] & 0x80) == 0x80 || (byte)(m_State[5] & 0x40) == 0x40) newAxisZ = (byte)(m_State[5] & 0x80) == 0x80 ? 1 : -1;
+                if (axisZ != newAxisZ || (newAxisZ != 0 && dataZ != newDataZ) || (axisZ != 0 && newAxisZ == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.Z, newAxisZ == 0 ? 0 : newDataZ));
+                }
+                axisZ = newAxisZ;
+                dataZ = newDataZ;
+
+                int newAxisRZ = 0;
+                sbyte newDataRZ = (sbyte)m_State[4];
+                if ((byte)(m_State[4] & 0x80) == 0x80 || (byte)(m_State[4] & 0x40) == 0x40) newAxisRZ = (byte)(m_State[4] & 0x80) == 0x80 ? 1 : -1;
+                if (axisRZ != newAxisRZ || (newAxisRZ != 0 && dataRZ != newDataRZ) || (axisRZ != 0 && newAxisRZ == 0))
+                {
+                    AxisChanged?.Invoke(new MotionEvent(Axis.RZ, newAxisRZ == 0 ? 0 : newDataRZ));
+                }
+                axisRZ = newAxisRZ;
+                dataRZ = newDataRZ;
+
+            }
         }
 
         #endregion 

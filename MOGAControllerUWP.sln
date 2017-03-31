@@ -1,0 +1,54 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MOGAController", "MOGAControllerUWP\MOGAController.csproj", "{EB442810-2EBF-4C6A-AE80-3519A4B5E632}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoystickTest", "JoystickTestUWP\JoystickTest.csproj", "{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM = Debug|ARM
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|ARM = Release|ARM
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|ARM.ActiveCfg = Debug|ARM
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|ARM.Build.0 = Debug|ARM
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|x64.ActiveCfg = Debug|x64
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|x64.Build.0 = Debug|x64
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|x86.ActiveCfg = Debug|x86
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Debug|x86.Build.0 = Debug|x86
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|ARM.ActiveCfg = Release|ARM
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|ARM.Build.0 = Release|ARM
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|x64.ActiveCfg = Release|x64
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|x64.Build.0 = Release|x64
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|x86.ActiveCfg = Release|x86
+		{EB442810-2EBF-4C6A-AE80-3519A4B5E632}.Release|x86.Build.0 = Release|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|ARM.ActiveCfg = Debug|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|ARM.Build.0 = Debug|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|ARM.Deploy.0 = Debug|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x64.ActiveCfg = Debug|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x64.Build.0 = Debug|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x64.Deploy.0 = Debug|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x86.ActiveCfg = Debug|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x86.Build.0 = Debug|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Debug|x86.Deploy.0 = Debug|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|ARM.ActiveCfg = Release|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|ARM.Build.0 = Release|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|ARM.Deploy.0 = Release|ARM
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x64.ActiveCfg = Release|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x64.Build.0 = Release|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x64.Deploy.0 = Release|x64
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x86.ActiveCfg = Release|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x86.Build.0 = Release|x86
+		{EF5AC1D2-2ACD-401D-B3F9-399BD165B93B}.Release|x86.Deploy.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
